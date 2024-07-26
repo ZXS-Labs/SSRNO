@@ -3,7 +3,7 @@ This repository contains the official implementation for Scalable Super Resoluti
 ## Installation
 1. Install requirements from conda
     ```cmd
-    conda env create -f freeze.yml
+    conda env create -f requirements.yml
     ```
 2. Clone the repo
    ```
