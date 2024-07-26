@@ -1,0 +1,40 @@
+test_dataset:
+  dataset:
+    name: image-folder
+    args:
+      # root_path: ./data/DIV2K_valid_HR
+      root_path: ./data/benchmark/Urban100/HR 
+      #root_path: ./data/benchmark/B100/HR
+      #root_path: ./data/benchmark/Set14/HR
+      #root_path: ./data/benchmark/Set5/HR
+  wrapper:
+      name: sr-implicit-downsampled-fast
+      args:
+        scale_min: 4
+        scale_max: 4
+        #inp_size: 128
+  batch_size: 1
+eval_type: benchmark-4
+# eval_bsize: 300
+
+
+data_norm:
+  inp: {sub: [0.5], div: [0.5]}
+  gt: {sub: [0.5], div: [0.5]}
+
+model:
+  name: sronet
+  args:
+    encoder_spec:
+      name: edsr-baseline
+      args:
+        no_upsampling: true
+    width: 256
+    blocks: 16
+optimizer:
+  name: adam
+  args:
+    lr: 4.e-5
+    #weight_decay: 1.e-5
+inn_encoder: true
+inn_attention: true
