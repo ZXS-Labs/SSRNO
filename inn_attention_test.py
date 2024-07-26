@@ -5,15 +5,12 @@ from functools import partial
 import yaml
 import torch
 from torch.utils.data import DataLoader
-from super_image import EdsrConfig,EdsrModel
 from tqdm import tqdm
 from skimage.metrics import peak_signal_noise_ratio
 from skimage.metrics import structural_similarity as ssim
 import datasets
 import models
 import utils
-import onnxruntime as ort
-import onnx
 import torch_integral as inn
 import numpy as np
 def batched_predict(model, inp, coord, cell, bsize):
@@ -83,69 +80,6 @@ def eval_psnr(loader, model, data_norm=None, eval_type=None, eval_bsize=None, sc
 
         if eval_bsize is None:
             with torch.no_grad():
-                # from thop import profile
-                # macs, params = profile(model,(inp,coord,cell*c))
-                # print(macs*2/1e9,params/1e6)
-                # exit()
- 
-                # 导入 Onnx 模型
-                # Model = onnx.load('onnx/ssrno97.onnx')
-                # onnx.checker.check_model(Model) # 验证Onnx模型是否准确
-                # # 使用 onnxruntime 推理
-                # model = ort.InferenceSession('onnx/ssrno97.onnx', providers=['CPUExecutionProvider'])
-                # ce = cell*c
-                # ce = ce.cpu().numpy()
-                # inp = inp.cpu().numpy()
-                # coord = coord.cpu().numpy()
-                # start = time.time()
-                # for i in range(100):
-                #     output = model.run(['output'], {'inp':inp,'coord':coord,'cell':ce})
-                # end = time.time()
-                # print("time:",utils.time_text(end-start))
-                # exit()
-                # pred = torch.from_numpy(output[0])
-                # pred = pred.cuda()
-
-                
-                # model = model.cpu()
-                # inp = inp.cpu()
-                # coord = coord.cpu()
-                # ce = cell*c
-                # ce = ce.cpu()
-
-                # start = time.time()
-                # for i in range(100):
-                #     pred = model(inp, coord, cell*c)
-                # end = time.time()
-                # print("time:",utils.time_text(end-start))
-                # exit()
-
-                # torch.onnx.export(model,
-                #                   (inp,coord,cell*c),
-                #                   "onnx/ssrno97.onnx",
-                #                   input_names=['inp','coord','cell'],
-                #                   output_names=['output'],
-                #                   dynamic_axes={
-                #                     'inp': {0: 'batch_size', 2: 'input_height', 3: 'input_width'},
-                #                     'coord': {0: 'batch_size',1: 'out_h', 2: 'out_w'},
-                #                     'output': {0: 'batch_size', 2: 'out_h', 3: 'out_w'}
-                #                     },
-                #                   export_params=True)
-                # exit()
-                # with torch.profiler.profile(
-                #     activities=[
-                #         torch.profiler.ProfilerActivity.CPU,
-                #         torch.profiler.ProfilerActivity.CUDA,
-                #     ],
-                #     on_trace_ready=torch.profiler.tensorboard_trace_handler('./logs/auto_attention_inplace'),
-                #     profile_memory=True,
-                #     record_shapes=True,
-                #     with_stack=True
-                # ) as profiler:
-                #     for times in range(100):
-                #         pred = model(inp, coord, cell*c)
-                #         profiler.step()
-                # exit()
                 pred = model(inp, coord, cell*c)
         else:
             pred = batched_predict(model, inp, coord, cell*c, eval_bsize)
@@ -154,7 +88,6 @@ def eval_psnr(loader, model, data_norm=None, eval_type=None, eval_bsize=None, sc
             pred = pred * gt_div + gt_sub
             pred.clamp_(0, 1)
             res = metric_fn(pred, batch['gt'])
-            #res = metric_fn(pred, batch['gt'], loader.dataset.dataset.dtr[(cnt-1)//96])
 
         val_res.add(res.item(), inp.shape[0])
 
@@ -194,12 +127,7 @@ if __name__ == '__main__':
             "body.15.body.2.bias":[0]
         }
         model.encoder = wrapper(model.encoder, (1,3,128,128), inn.standard_continuous_dims(model.encoder), dis_dims)
-        # for i in model.encoder.groups:
-        #     if "operator" not in i.operations:
-        #         size = i.size/2
-        #     else:
-        #         size = i.size
-        #     i.reset_distribution(inn.UniformDistribution(int(i.size/2), int(i.size), i.base))
+
     if config["inn_attention"]:
         print("attentions changed")
         tmp = model.attentions
@@ -219,20 +147,7 @@ if __name__ == '__main__':
         }
         wrapper = inn.IntegralWrapper(init_from_discrete=False,permutation_config={"class":inn.permutation.NOptOutFiltersPermutation})
         model.attentions = wrapper(tmp, (1, 266, 64, 64), c_dims, dis_dims)
-        # for i in model.attentions.groups:
-        #     i.reset_distribution(inn.UniformDistribution(int(i.size/2), int(i.size), i.base))
     model.load_state_dict(model_spec['sd'])
-    # if config['inn_encoder']:
-    #     for i in model.encoder.groups:
-    #         if i.size<4:
-    #             size = i.size
-    #         else:
-    #             size = i.size/2
-    #         i.resize(int(size))
-    # if config["inn_attention"]:
-    #     for i in model.attentions.groups:
-    #         if i.typeo!="max":
-    #             i.resize(int(i.size/2))
     
     if config["inn_encoder"]:
         model.encoder.threshold = 0.99
@@ -240,7 +155,7 @@ if __name__ == '__main__':
         model.encoder.set_distributions()
         model.encoder.set_size()
     if config["inn_attention"]:
-        model.attentions.threshold = 0.93
+        model.attentions.threshold = 0.92
         model.attentions.set_rate()
         model.attentions.set_distributions()
         model.attentions.set_size()
@@ -251,9 +166,12 @@ if __name__ == '__main__':
         print("Compression: ", model.attentions.eval().calculate_compression()) 
         model.attentions = model.attentions.get_unparametrized_model()
     print(args.model)
-    roots = ["./data/benchmark/Urban100/HR","./data/benchmark/B100/HR", "./data/benchmark/Set14/HR","./data/benchmark/Set5/HR"]
-    scals = [4,6]
-    evaltp = "benchmark"
+    # roots = ["./data/benchmark/Urban100/HR","./data/benchmark/B100/HR", "./data/benchmark/Set14/HR","./data/benchmark/Set5/HR"]
+    roots = [config["test_dataset"]['dataset']['root_path']]
+    # scals = [4,6]
+    scals = [config['test_dataset']['wrapper']['args']['scale_min']]
+    # evaltp = "benchmark"
+    evaltp = [config['eval_type'].split('-')[0]]
     # roots = ["./data/DIV2K_valid_HR"]
     # scals = [2,3,4,6,12,18,24,30]
     # config['eval_bsize'] = 300
