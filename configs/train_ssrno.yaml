@@ -60,7 +60,6 @@ warmup_step_lr:
 epoch_val: 50
 epoch_save: 25
 
-resume: /home/hanlei/Code/Super-Resolution-Neural-Operator/edsr-inn.pth
 continue: False
 inn_encoder: False
 inn_attention: True
