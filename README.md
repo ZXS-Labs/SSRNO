@@ -9,11 +9,11 @@ This repository contains the official implementation for Scalable Super Resoluti
    ```bash
    git clone https://github.com/ZXS-Labs/SSRNO.git
    ```
-3. install the modified TorchIntegral
+3. Install the modified TorchIntegral
    ```bash
    pip install ./_TO
    ```
-4. [optional] install Inplace_Gelu from [Tempo](https://github.com/UofT-EcoSystem/Tempo.git)
+4. [optional] Install Inplace_Gelu from [Tempo](https://github.com/UofT-EcoSystem/Tempo.git)
    ```bash
     git clone https://github.com/UofT-EcoSystem/Tempo.git
     cd Tempo
